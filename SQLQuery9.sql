@@ -42,5 +42,69 @@ Group BY location
 ORDER BY PercentPopulationdied desc
 
 
-select *
-from CovidAnalysis..CovidVaccinations
+--Looking at total Population vs Vaccinations
+select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations, 
+	sum(convert(int,vac.new_vaccinations)) over (partition by dea.location order by dea.location, dea.date) as RollingPeopleVaccinated
+from CovidAnalysis..CovidDeaths dea
+join CovidAnalysis..CovidVaccinations vac
+on dea.location = vac.location and dea.date = vac.date
+where dea.continent is not null and vac.new_vaccinations is not null
+order by 2,3
+
+
+-- Use CTE
+
+with PopvsVac(Continent, location, date, population, new_vaccinations, RollingPeopleVaccinated)
+as
+(
+	select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations, 
+		sum(convert(int,vac.new_vaccinations)) over (partition by dea.location order by dea.location, dea.date) as RollingPeopleVaccinated
+	from CovidAnalysis..CovidDeaths dea
+	join CovidAnalysis..CovidVaccinations vac
+	on dea.location = vac.location and dea.date = vac.date
+	where dea.continent is not null and vac.new_vaccinations is not null
+	--order by 2,3
+)
+select *, (RollingPeopleVaccinated/population)*100
+from PopvsVac
+
+
+--Create Temp Table
+
+drop table if exists #PercentPopVac
+create table #PercentPopVac
+(
+continent nvarchar(255),
+location nvarchar(255),
+date datetime,
+population numeric,
+new_vaccination numeric,
+RollingPeopleVaccinated numeric
+
+)
+
+Insert into #PercentPopVac
+	select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations, 
+		sum(convert(int,vac.new_vaccinations)) over (partition by dea.location order by dea.location, dea.date) as RollingPeopleVaccinated
+	from CovidAnalysis..CovidDeaths dea
+	join CovidAnalysis..CovidVaccinations vac
+	on dea.location = vac.location and dea.date = vac.date
+	where dea.continent is not null and vac.new_vaccinations is not null
+	--order by 2,3
+
+select *,(RollingPeopleVaccinated/population)*100
+from #PercentPopVac
+
+
+-- Creating view to store data for later visualization
+create view PercentPopVac22 as
+	select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations, 
+		sum(convert(int,vac.new_vaccinations)) over (partition by dea.location order by dea.location, dea.date) as RollingPeopleVaccinated
+	from CovidAnalysis..CovidDeaths dea
+	join CovidAnalysis..CovidVaccinations vac
+	on dea.location = vac.location and dea.date = vac.date
+	where dea.continent is not null and vac.new_vaccinations is not null
+	--order by 2,3
+
+
+select * from PercentPopVac22
